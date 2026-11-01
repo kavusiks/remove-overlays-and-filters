@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Remove Overlays and Filters</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="actions">
+      <button id="remove-blur" type="button">Remove blur</button>
+      <button id="enable-scrolling" type="button">Enable scrolling</button>
+      <button id="start-picker" type="button">Pick element to remove</button>
+    </div>
+    <p id="status" role="status"></p>
+    <section id="rules-section" hidden>
+      <h2>Removed on <span id="rules-host"></span></h2>
+      <ul id="rules"></ul>
+    </section>
+    <script src="popup.js"></script>
+  </body>
+</html>

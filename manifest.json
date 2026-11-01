@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Remove Overlays and Filters",
+  "version": "1.0.0",
+  "description": "Remove CSS blur from text, re-enable disabled scrolling, and click any popup or element to remove it.",
+  "permissions": ["storage"],
+  "action": {
+    "default_title": "Remove Overlays and Filters",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

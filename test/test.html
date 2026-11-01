@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<!--
+  Manual and automated test page. Add ?lock=overflow, ?lock=fixed or ?lock=wrapper
+  to choose the scroll lock. Serve it over http, or enable "Allow access to file
+  URLs" for the extension.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Remove Overlays and Filters: test page</title>
+    <style>
+      html, body { margin: 0; }
+      body { font: 16px/1.5 system-ui, sans-serif; color: #222; }
+      section { padding: 8px 16px; }
+
+      .blurred { filter: blur(6px); user-select: none; }
+      .blurred-bright { filter: blur(6px) brightness(0.8); }
+      .blurred-image { filter: blur(6px); display: block; width: 120px; height: 60px; }
+      .fake-blur { color: transparent; text-shadow: 0 0 8px rgba(0, 0, 0, 0.6); }
+      .frosted-parent { position: relative; }
+      .frosted { position: absolute; inset: 0; backdrop-filter: blur(6px); }
+      .late-blur { filter: blur(6px); }
+      .tall { height: 3000px; background: linear-gradient(#fff, #bbb); }
+
+      .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 10; }
+      .modal {
+        position: fixed; top: 25%; left: 25%; width: 50%; padding: 24px; z-index: 11;
+        background: #fff; border-radius: 8px;
+      }
+
+      body.lock-overflow { overflow: hidden; height: 100%; }
+      html.lock-overflow { height: 100%; }
+      body.lock-fixed { position: fixed; top: -200px; width: 100%; }
+      #wrapper.lock-wrapper { height: 100vh; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <div id="wrapper">
+      <section>
+        <h1>Test page</h1>
+        <p id="plain">Plain text that should never change.</p>
+        <p id="blurred" class="blurred">Blurred secret text.</p>
+        <p id="blurred-bright" class="blurred-bright">Blurred text that should keep its brightness filter.</p>
+        <img
+          id="blurred-image"
+          class="blurred-image"
+          alt=""
+          src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60'%3E%3Crect width='120' height='60' fill='teal'/%3E%3C/svg%3E"
+        />
+        <p id="fake-blur" class="fake-blur">Transparent text faking blur with a shadow.</p>
+        <div class="frosted-parent">
+          <p>Text underneath a frosted overlay.</p>
+          <div id="frosted" class="frosted"></div>
+        </div>
+        <p id="late">This text is blurred later by a script.</p>
+        <button id="add-late-blur" type="button">Blur the text above</button>
+        <div id="shadow-host"></div>
+      </section>
+      <div class="tall"></div>
+    </div>
+
+    <div id="newsletter-backdrop" class="backdrop"></div>
+    <div id="newsletter-modal" class="modal">
+      <h2 id="modal-title">Subscribe to continue</h2>
+      <p>Pick this dialog and its backdrop to remove them.</p>
+    </div>
+
+    <script>
+      const lock = new URLSearchParams(location.search).get('lock');
+      if (lock === 'overflow') {
+        document.documentElement.classList.add('lock-overflow');
+        document.body.classList.add('lock-overflow');
+      } else if (lock === 'fixed') {
+        document.body.classList.add('lock-fixed');
+      } else if (lock === 'wrapper') {
+        document.documentElement.style.overflow = 'hidden';
+        document.getElementById('wrapper').classList.add('lock-wrapper');
+      }
+
+      // ?popup=<kind> swaps the default modal for a harder popup. Each is marked
+      // data-test="popup" for the tests only: rules must not rely on that attribute.
+      const POPUP_STYLE =
+        'position: fixed; top: 150px; left: 300px; width: 400px; height: 200px; background: #fff; border: 1px solid #888;';
+      const popupKind = new URLSearchParams(location.search).get('popup');
+
+      function makePopup(tag) {
+        const el = document.createElement(tag);
+        el.dataset.test = 'popup';
+        el.style.cssText = POPUP_STYLE;
+        el.textContent = `Popup: ${popupKind}`;
+        return el;
+      }
+
+      function makeShadowPopup(mode) {
+        const host = document.createElement('x-popup');
+        host.dataset.test = 'popup';
+        const inner = document.createElement('div');
+        inner.style.cssText = POPUP_STYLE;
+        inner.textContent = `Popup: ${popupKind}`;
+        host.attachShadow({ mode }).appendChild(inner);
+        return host;
+      }
+
+      const POPUPS = {
+        iframe() {
+          const frame = makePopup('iframe');
+          frame.srcdoc = '<p>Popup inside an iframe</p>';
+          document.body.appendChild(frame);
+        },
+        maxz() {
+          const el = makePopup('div');
+          el.style.zIndex = '2147483647';
+          document.body.appendChild(el);
+        },
+        dialog() {
+          const el = makePopup('dialog');
+          el.style.margin = '0';
+          document.body.appendChild(el);
+          el.showModal();
+        },
+        popover() {
+          const el = makePopup('div');
+          el.popover = 'manual';
+          el.style.margin = '0';
+          document.body.appendChild(el);
+          el.showPopover();
+        },
+        htmlchild() {
+          document.documentElement.appendChild(makePopup('div'));
+        },
+        openshadow() {
+          document.body.appendChild(makeShadowPopup('open'));
+        },
+        closedshadow() {
+          document.body.appendChild(makeShadowPopup('closed'));
+        },
+      };
+
+      if (popupKind) {
+        document.getElementById('newsletter-backdrop').remove();
+        document.getElementById('newsletter-modal').remove();
+        POPUPS[popupKind]();
+      }
+
+      window.clickCount = 0;
+      document.getElementById('newsletter-modal')?.addEventListener('click', () => {
+        window.clickCount += 1;
+      });
+
+      document.getElementById('add-late-blur').addEventListener('click', () => {
+        document.getElementById('late').classList.add('late-blur');
+      });
+
+      document.getElementById('shadow-host').attachShadow({ mode: 'open' }).innerHTML =
+        '<p id="in-shadow" style="filter: blur(6px)">Blurred text in a shadow root.</p>';
+    </script>
+  </body>
+</html>
